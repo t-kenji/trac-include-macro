@@ -14,7 +14,7 @@ from StringIO import StringIO
 from genshi.core import escape
 from genshi.filters.html import HTMLSanitizer
 from genshi.input import HTMLParser, ParseError
-from trac.core import *
+from trac.core import Component, TracError, implements
 from trac.mimeview.api import Mimeview, get_mimetype, Context
 from trac.perm import IPermissionRequestor
 from trac.resource import ResourceNotFound
@@ -24,7 +24,6 @@ from trac.wiki.formatter import system_message
 from trac.wiki.macros import WikiMacroBase
 from trac.wiki.model import WikiPage
 
-__all__ = ['IncludeMacro']
 
 class IncludeMacro(WikiMacroBase):
     """A macro to include other resources in wiki pages.
@@ -44,13 +43,13 @@ class IncludeMacro(WikiMacroBase):
         if len(args) == 1:
             args.append(None)
         elif len(args) != 2:
-            return system_message('Invalid arguments "%s"'%content)
+            return system_message('Invalid arguments "%s"' % content)
             
         # Pull out the arguments
         source, dest_format = args
         try:
             source_format, source_obj = source.split(':', 1)
-        except ValueError: # If no : is present, assume its a wiki page
+        except ValueError:  # If no : is present, assume its a wiki page
             source_format, source_obj = 'wiki', source
             
         # Apply a default format if needed
@@ -106,7 +105,7 @@ class IncludeMacro(WikiMacroBase):
                     ticket = Ticket(self.env, ticket_num)
                     if not 'TICKET_VIEW' in formatter.perm(ticket.resource):
                         return ''
-                except ResourceNotFound, e:
+                except ResourceNotFound:
                     return system_message("Ticket %s does not exist" % ticket_num)
                 if ':' in source_obj:
                     source_format, comment_num = source_obj.split(':', 1)
@@ -151,9 +150,10 @@ class IncludeMacro(WikiMacroBase):
     # Private methods
     def _get_source(self, formatter, source_obj, dest_format):
         repos_mgr = RepositoryManager(self.env)
-        try: #0.12+
-            repos_name, repos,source_obj = repos_mgr.get_repository_by_path(source_obj)
-        except AttributeError, e: #0.11
+        try:  # 0.12+
+            repos_name, repos, source_obj = \
+                repos_mgr.get_repository_by_path(source_obj)
+        except AttributeError:  # 0.11
             repos = repos_mgr.get_repository(formatter.req.authname)
         path, rev = _split_path(source_obj)
         node = repos.get_node(path, rev)
@@ -163,11 +163,11 @@ class IncludeMacro(WikiMacroBase):
         ctxt = Context.from_request(formatter.req, 'source', path)
         
         return out, ctxt, dest_format
-    
+
+
 def _split_path(source_obj):
     if '@' in source_obj:
         path, rev = source_obj.split('@', 1)
     else:
         path, rev = source_obj, None
-    return path, rev    
-    
+    return path, rev
