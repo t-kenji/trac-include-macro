@@ -92,7 +92,7 @@ class IncludeMacro(WikiMacroBase):
                     return system_message('Wiki page "%s" does not exist' % page_name)
             out = page.text
             ctxt = Context.from_request(formatter.req, 'wiki', source_obj)
-        elif source_format == ('source', 'browser', 'repos'):
+        elif source_format in ('source', 'browser', 'repos'):
             if not formatter.perm.has_permission('FILE_VIEW'):
                 return ''
             out, ctxt, dest_format = self._get_source(formatter, source_obj, dest_format)
