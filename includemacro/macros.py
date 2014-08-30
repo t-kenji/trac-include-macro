@@ -2,6 +2,7 @@
 #
 # Copyright (C) 2007-2008 Noah Kantrowitz <noah@coderanger.net>
 # Copyright (C) 2012 Ryan J Ollos <ryan.j.ollos@gmail.com>
+# Copyright (C) 2014 Steffen Hoffmann <hoff.st@web.de>
 # All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
@@ -20,6 +21,7 @@ from trac.perm import IPermissionRequestor
 from trac.resource import ResourceNotFound
 from trac.ticket.model import Ticket
 from trac.versioncontrol.api import RepositoryManager
+from trac.wiki.api import WikiSystem
 from trac.wiki.formatter import system_message
 from trac.wiki.macros import WikiMacroBase
 from trac.wiki.model import WikiPage
@@ -78,10 +80,26 @@ class IncludeMacro(WikiMacroBase):
             ctxt = Context.from_request(formatter.req)
         elif source_format == 'wiki':
             # XXX: Check for recursion in page includes. <NPK>
-            if '@' in source_obj:
-                page_name, page_version = source_obj.split('@', 1)
-            else:
-                page_name, page_version = source_obj, None
+            page_name, page_version = _split_path(source_obj)
+            referrer = ''
+            # Relative link resolution adapted from Trac 1.1.2dev.
+            # Hint: Only attempt this in wiki rendering context.
+            if formatter.resource and formatter.resource.realm == 'wiki':
+                referrer = formatter.resource.id
+                ws = WikiSystem(self.env)
+                if page_name.startswith('/'):
+                    page_name = page_name.lstrip('/')
+                elif page_name.startswith(('./', '../')) or \
+                        page_name in ('.', '..'):
+                    try:
+                        # Trac 1.2
+                        page_name = ws.resolve_relative_name(page_name,
+                                                             referrer)
+                    except AttributeError:
+                        page_name = _resolve_relative_name(page_name,
+                                                           referrer)
+                else:
+                    page_name = _resolve_scoped_name(ws, page_name, referrer)
             page = WikiPage(self.env, page_name, page_version)
             if not 'WIKI_VIEW' in formatter.perm(page.resource):
                 return ''
@@ -163,6 +181,44 @@ class IncludeMacro(WikiMacroBase):
         ctxt = Context.from_request(formatter.req, 'source', path)
         
         return out, ctxt, dest_format
+
+
+def _resolve_relative_name(page_name, referrer):
+    base = referrer.split('/')
+    components = page_name.split('/')
+    for i, comp in enumerate(components):
+        if comp == '..':
+            if base:
+                base.pop()
+        elif comp != '.':
+            base.extend(components[i:])
+            break
+    return '/'.join(base)
+
+
+def _resolve_scoped_name(wiki_sys, page_name, referrer):
+    referrer = referrer.split('/')
+    if len(referrer) == 1:           # Non-hierarchical referrer
+        return page_name
+    # Test for pages with same name, higher in the hierarchy
+    for i in range(len(referrer) - 1, 0, -1):
+        name = '/'.join(referrer[:i]) + '/' + page_name
+        if wiki_sys.has_page(name):
+            return name
+    if wiki_sys.has_page(page_name):
+        return page_name
+    # If we are on First/Second/Third, and pagename is Second/Other,
+    # resolve to First/Second/Other instead of First/Second/Second/Other
+    # See http://trac.edgewall.org/ticket/4507#comment:12
+    if '/' in page_name:
+        (first, rest) = page_name.split('/', 1)
+        for (i, part) in enumerate(referrer):
+            if first == part:
+                anchor = '/'.join(referrer[:i + 1])
+                if wiki_sys.has_page(anchor):
+                    return anchor + '/' + rest
+    # Assume the user wants a sibling of referrer
+    return '/'.join(referrer[:-1]) + '/' + page_name
 
 
 def _split_path(source_obj):
