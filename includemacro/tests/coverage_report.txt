@@ -1,0 +1,3 @@
+Name                                                                    Stmts   Miss Branch BrMiss  Cover   Missing
+-------------------------------------------------------------------------------------------------------------------
+/home/aauzi/Projets/trac-hacks/includemacro/trunk/includemacro/macros     544     10    211     15    97%   682, 717-724, 746, 1088-1089

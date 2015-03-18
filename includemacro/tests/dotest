@@ -1,0 +1,4 @@
+#!/bin/sh
+rm -fr *_report.txt
+coverage run tests.py 2>&1 | tee unittest_report.txt
+coverage report -m | tee coverage_report.txt
