@@ -20,7 +20,7 @@ from trac.mimeview.api import Mimeview, get_mimetype, Context
 from trac.perm import IPermissionRequestor
 from trac.resource import ResourceNotFound
 from trac.ticket.model import Ticket
-from trac.versioncontrol.api import RepositoryManager
+from trac.versioncontrol.api import NoSuchNode, RepositoryManager
 from trac.wiki.api import WikiSystem
 from trac.wiki.formatter import system_message
 from trac.wiki.macros import WikiMacroBase
@@ -31,14 +31,14 @@ class IncludeMacro(WikiMacroBase):
     """A macro to include other resources in wiki pages.
     More documentation to follow.
     """
-    
+
     implements(IPermissionRequestor)
-    
+
     # Default output formats for sources that need them
     default_formats = {
         'wiki': 'text/x-trac-wiki',
     }
-    
+
     # IWikiMacroProvider methods
     def expand_macro(self, formatter, name, content):
         args = [x.strip() for x in content.split(',')]
@@ -46,23 +46,23 @@ class IncludeMacro(WikiMacroBase):
             args.append(None)
         elif len(args) != 2:
             return system_message('Invalid arguments "%s"' % content)
-            
+
         # Pull out the arguments
         source, dest_format = args
         try:
             source_format, source_obj = source.split(':', 1)
         except ValueError:  # If no : is present, assume its a wiki page
             source_format, source_obj = 'wiki', source
-            
+
         # Apply a default format if needed
         if dest_format is None:
             try:
                 dest_format = self.default_formats[source_format]
             except KeyError:
                 pass
-        
+
         if source_format in ('http', 'https', 'ftp'):
-            # Since I can't really do recursion checking, and because this 
+            # Since I can't really do recursion checking, and because this
             # could be a source of abuse allow selectively blocking it.
             # RFE: Allow blacklist/whitelist patterns for URLS. <NPK>
             # RFE: Track page edits and prevent unauthorized users from ever entering a URL include. <NPK>
@@ -72,7 +72,7 @@ class IncludeMacro(WikiMacroBase):
                 return ''
             try:
                 urlf = urllib2.urlopen(source)
-                out = urlf.read()  
+                out = urlf.read()
             except urllib2.URLError, e:
                 return system_message('Error while retrieving file', str(e))
             except TracError, e:
@@ -147,24 +147,24 @@ class IncludeMacro(WikiMacroBase):
             # RFE: Add ticket: and comment: sources. <NPK>
             # RFE: Add attachment: source. <NPK>
             return system_message('Unsupported realm %s' % source)
-        
+
         # If we have a preview format, use it
         if dest_format:
             out = Mimeview(self.env).render(ctxt, dest_format, out)
-        
+
         # Escape if needed
         if not self.config.getbool('wiki', 'render_unsafe_content', False):
             try:
                 out = HTMLParser(StringIO(out)).parse() | HTMLSanitizer()
             except ParseError:
                 out = escape(out)
-        
+
         return out
-            
+
     # IPermissionRequestor methods
     def get_permission_actions(self):
         yield 'INCLUDE_URL'
-    
+
     # Private methods
     def _get_source(self, formatter, source_obj, dest_format):
         repos_mgr = RepositoryManager(self.env)
@@ -174,12 +174,15 @@ class IncludeMacro(WikiMacroBase):
         except AttributeError:  # 0.11
             repos = repos_mgr.get_repository(formatter.req.authname)
         path, rev = _split_path(source_obj)
-        node = repos.get_node(path, rev)
+        try:
+            node = repos.get_node(path, rev)
+        except NoSuchNode, e:
+            return system_message(e), None, None
         out = node.get_content().read()
         if dest_format is None:
             dest_format = node.content_type or get_mimetype(path, out)
         ctxt = Context.from_request(formatter.req, 'source', path)
-        
+
         return out, ctxt, dest_format
 
 
