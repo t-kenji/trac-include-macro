@@ -20,6 +20,7 @@ from trac.mimeview.api import Mimeview, get_mimetype, Context
 from trac.perm import IPermissionRequestor
 from trac.resource import ResourceNotFound
 from trac.ticket.model import Ticket
+from trac.util.text import to_unicode
 from trac.versioncontrol.api import NoSuchNode, RepositoryManager
 from trac.wiki.api import WikiSystem
 from trac.wiki.formatter import system_message
@@ -154,6 +155,7 @@ class IncludeMacro(WikiMacroBase):
 
         # Escape if needed
         if not self.config.getbool('wiki', 'render_unsafe_content', False):
+            out = to_unicode(out)
             try:
                 out = HTMLParser(StringIO(out)).parse() | HTMLSanitizer()
             except ParseError:
