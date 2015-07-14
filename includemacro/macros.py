@@ -30,12 +30,13 @@ from trac.wiki.model import WikiPage
 
 class IncludeMacro(WikiMacroBase):
     """A macro to include other resources in wiki pages.
+
     More documentation to follow.
     """
 
     implements(IPermissionRequestor)
 
-    # Default output formats for sources that need them
+    # Default output formats for sources that need them.
     default_formats = {
         'wiki': 'text/x-trac-wiki',
     }
@@ -48,14 +49,14 @@ class IncludeMacro(WikiMacroBase):
         elif len(args) != 2:
             return system_message('Invalid arguments "%s"' % content)
 
-        # Pull out the arguments
+        # Pull out the arguments.
         source, dest_format = args
         try:
             source_format, source_obj = source.split(':', 1)
-        except ValueError:  # If no : is present, assume its a wiki page
+        except ValueError:  # If no : is present, assume its a wiki page.
             source_format, source_obj = 'wiki', source
 
-        # Apply a default format if needed
+        # Apply a default format if needed.
         if dest_format is None:
             try:
                 dest_format = self.default_formats[source_format]
@@ -66,10 +67,13 @@ class IncludeMacro(WikiMacroBase):
             # Since I can't really do recursion checking, and because this
             # could be a source of abuse allow selectively blocking it.
             # RFE: Allow blacklist/whitelist patterns for URLS. <NPK>
-            # RFE: Track page edits and prevent unauthorized users from ever entering a URL include. <NPK>
+            # RFE: Track page edits and prevent unauthorized users from ever
+            #      entering an URL include. <NPK>
             if not formatter.perm.has_permission('INCLUDE_URL'):
-                self.log.info('IncludeMacro: Blocking attempt by %s to include URL %s on page %s',
-                              formatter.req.authname, source, formatter.req.path_info)
+                self.log.info(
+                    'IncludeMacro: Blocking attempt by %s to include URL %s '
+                    'on page %s', formatter.req.authname, source,
+                    formatter.req.path_info)
                 return ''
             try:
                 urlf = urllib2.urlopen(source)
@@ -106,42 +110,54 @@ class IncludeMacro(WikiMacroBase):
                 return ''
             if not page.exists:
                 if page_version:
-                    return system_message('No version "%s" for wiki page "%s"' % (page_version, page_name))
+                    return system_message('No version "%s" for wiki page "%s"'
+                                          % (page_version, page_name))
                 else:
-                    return system_message('Wiki page "%s" does not exist' % page_name)
+                    return system_message('Wiki page "%s" does not exist'
+                                          % page_name)
             out = page.text
             ctxt = Context.from_request(formatter.req, 'wiki', source_obj)
         elif source_format in ('source', 'browser', 'repos'):
             if not formatter.perm.has_permission('FILE_VIEW'):
                 return ''
-            out, ctxt, dest_format = self._get_source(formatter, source_obj, dest_format)
+            out, ctxt, dest_format = self._get_source(formatter, source_obj,
+                                                      dest_format)
         elif source_format == 'ticket':
             if ':' in source_obj:
                 ticket_num, source_obj = source_obj.split(':', 1)
                 if not Ticket.id_is_valid(ticket_num):
-                    return system_message("%s is not a valid ticket id" % ticket_num)
+                    return system_message("%s is not a valid ticket id"
+                                          % ticket_num)
                 try:
                     ticket = Ticket(self.env, ticket_num)
                     if not 'TICKET_VIEW' in formatter.perm(ticket.resource):
                         return ''
                 except ResourceNotFound:
-                    return system_message("Ticket %s does not exist" % ticket_num)
+                    return system_message("Ticket %s does not exist"
+                                          % ticket_num)
                 if ':' in source_obj:
                     source_format, comment_num = source_obj.split(':', 1)
                     if source_format == 'comment':
                         changelog = ticket.get_changelog()
                         out = []
                         if changelog:
-                            for (ts, author, field, oldval, newval, permanent) in changelog:
-                                if field == 'comment' and oldval == comment_num:
+                            for (ts, author, field, oldval, newval,
+                                 permanent) in changelog:
+                                if field == 'comment' and \
+                                        oldval == comment_num:
                                     dest_format = 'text/x-trac-wiki'
-                                    ctxt = Context.from_request(formatter.req, 'ticket', ticket_num)
+                                    ctxt = Context.from_request(formatter.req,
+                                                                'ticket',
+                                                                ticket_num)
                                     out = newval
                                     break
                         if not out:
-                            return system_message("Comment %s does not exist for Ticket %s" % (comment_num, ticket_num))
+                            return system_message(
+                                   "Comment %s does not exist for Ticket %s"
+                                    % (comment_num, ticket_num))
                     else:
-                        system_message("Unsupported ticket field %s" % source_format)
+                        system_message("Unsupported ticket field %s"
+                                       % source_format)
             else:
                 return system_message('Ticket field must be specified')
         else:
@@ -149,11 +165,11 @@ class IncludeMacro(WikiMacroBase):
             # RFE: Add attachment: source. <NPK>
             return system_message('Unsupported realm %s' % source)
 
-        # If we have a preview format, use it
+        # If we have a preview format, use it.
         if dest_format:
             out = Mimeview(self.env).render(ctxt, dest_format, out)
 
-        # Escape if needed
+        # Escape if needed.
         if not self.config.getbool('wiki', 'render_unsafe_content', False):
             out = to_unicode(out)
             try:
@@ -205,7 +221,7 @@ def _resolve_scoped_name(wiki_sys, page_name, referrer):
     referrer = referrer.split('/')
     if len(referrer) == 1:           # Non-hierarchical referrer
         return page_name
-    # Test for pages with same name, higher in the hierarchy
+    # Test for pages with same name, higher in the hierarchy.
     for i in range(len(referrer) - 1, 0, -1):
         name = '/'.join(referrer[:i]) + '/' + page_name
         if wiki_sys.has_page(name):
@@ -222,7 +238,7 @@ def _resolve_scoped_name(wiki_sys, page_name, referrer):
                 anchor = '/'.join(referrer[:i + 1])
                 if wiki_sys.has_page(anchor):
                     return anchor + '/' + rest
-    # Assume the user wants a sibling of referrer
+    # Assume the user wants a sibling of referrer.
     return '/'.join(referrer[:-1]) + '/' + page_name
 
 
