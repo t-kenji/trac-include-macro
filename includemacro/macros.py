@@ -58,10 +58,7 @@ class IncludeMacro(WikiMacroBase):
 
         # Apply a default format if needed.
         if dest_format is None:
-            try:
-                dest_format = self.default_formats[source_format]
-            except KeyError:
-                pass
+            dest_format = self.default_formats.get(source_format)
 
         if source_format in ('http', 'https', 'ftp'):
             # Since I can't really do recursion checking, and because this
@@ -69,7 +66,7 @@ class IncludeMacro(WikiMacroBase):
             # RFE: Allow blacklist/whitelist patterns for URLS. <NPK>
             # RFE: Track page edits and prevent unauthorized users from ever
             #      entering an URL include. <NPK>
-            if not formatter.perm.has_permission('INCLUDE_URL'):
+            if 'INCLUDE_URL' not in formatter.perm:
                 self.log.info(
                     'IncludeMacro: Blocking attempt by %s to include URL %s '
                     'on page %s', formatter.req.authname, source,
@@ -106,7 +103,7 @@ class IncludeMacro(WikiMacroBase):
                 else:
                     page_name = _resolve_scoped_name(ws, page_name, referrer)
             page = WikiPage(self.env, page_name, page_version)
-            if not 'WIKI_VIEW' in formatter.perm(page.resource):
+            if 'WIKI_VIEW' not in formatter.perm(page.resource):
                 return ''
             if not page.exists:
                 if page_version:
@@ -118,7 +115,7 @@ class IncludeMacro(WikiMacroBase):
             out = page.text
             ctxt = Context.from_request(formatter.req, 'wiki', source_obj)
         elif source_format in ('source', 'browser', 'repos'):
-            if not formatter.perm.has_permission('FILE_VIEW'):
+            if 'FILE_VIEW' not in formatter.perm:
                 return ''
             out, ctxt, dest_format = self._get_source(formatter, source_obj,
                                                       dest_format)
@@ -130,7 +127,7 @@ class IncludeMacro(WikiMacroBase):
                                           % ticket_num)
                 try:
                     ticket = Ticket(self.env, ticket_num)
-                    if not 'TICKET_VIEW' in formatter.perm(ticket.resource):
+                    if 'TICKET_VIEW' not in formatter.perm(ticket.resource):
                         return ''
                 except ResourceNotFound:
                     return system_message("Ticket %s does not exist"
@@ -154,7 +151,7 @@ class IncludeMacro(WikiMacroBase):
                         if not out:
                             return system_message(
                                    "Comment %s does not exist for Ticket %s"
-                                    % (comment_num, ticket_num))
+                                   % (comment_num, ticket_num))
                     else:
                         system_message("Unsupported ticket field %s"
                                        % source_format)
