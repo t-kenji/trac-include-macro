@@ -22,7 +22,8 @@ from trac.resource import ResourceNotFound
 from trac.ticket.model import Ticket
 from trac.util.text import to_unicode
 from trac.util.translation import _
-from trac.versioncontrol.api import NoSuchNode, RepositoryManager
+from trac.versioncontrol.api import NoSuchChangeset, NoSuchNode, \
+                                    RepositoryManager
 from trac.wiki.api import WikiSystem
 from trac.wiki.formatter import system_message
 from trac.wiki.macros import WikiMacroBase
@@ -199,7 +200,7 @@ class IncludeMacro(WikiMacroBase):
         path, rev = _split_path(source_obj)
         try:
             node = repos.get_node(path, rev)
-        except NoSuchNode, e:
+        except (NoSuchChangeset, NoSuchNode), e:
             return system_message(e), None, None
         out = node.get_content().read()
         if dest_format is None:
