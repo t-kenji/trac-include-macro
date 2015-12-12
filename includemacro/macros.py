@@ -21,6 +21,7 @@ from trac.perm import IPermissionRequestor
 from trac.resource import ResourceNotFound
 from trac.ticket.model import Ticket
 from trac.util.text import to_unicode
+from trac.util.translation import _
 from trac.versioncontrol.api import NoSuchNode, RepositoryManager
 from trac.wiki.api import WikiSystem
 from trac.wiki.formatter import system_message
@@ -102,7 +103,14 @@ class IncludeMacro(WikiMacroBase):
                                                            referrer)
                 else:
                     page_name = _resolve_scoped_name(ws, page_name, referrer)
-            page = WikiPage(self.env, page_name, page_version)
+            try:
+                page = WikiPage(self.env, page_name, page_version)
+            except (TypeError, ValueError), e:  # Trac:#12273
+                msg = _('"%(version)s" is not a valid wiki page version.',
+                        version=page_version)
+                return system_message(msg)
+            except TracError, e:
+                return system_message(e)
             if 'WIKI_VIEW' not in formatter.perm(page.resource):
                 return ''
             if not page.exists:
