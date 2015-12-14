@@ -106,7 +106,7 @@ class IncludeMacro(WikiMacroBase):
                     page_name = _resolve_scoped_name(ws, page_name, referrer)
             try:
                 page = WikiPage(self.env, page_name, page_version)
-            except (TypeError, ValueError), e:  # Trac:#12273
+            except (TypeError, ValueError), e:  # Trac < 1.2 (Trac:#11544)
                 msg = _('"%(version)s" is not a valid wiki page version.',
                         version=page_version)
                 return system_message(msg)
