@@ -202,10 +202,14 @@ class IncludeMacro(WikiMacroBase):
             node = repos.get_node(path, rev)
         except (NoSuchChangeset, NoSuchNode), e:
             return system_message(e), None, None
-        out = node.get_content().read()
-        if dest_format is None:
-            dest_format = node.content_type or get_mimetype(path, out)
-        ctxt = Context.from_request(formatter.req, 'source', path)
+        content = node.get_content()
+        out = ''
+        ctxt = dest_format = None
+        if content:
+            out = content.read()
+            if dest_format is None:
+                dest_format = node.content_type or get_mimetype(path, out)
+            ctxt = Context.from_request(formatter.req, 'source', path)
 
         return out, ctxt, dest_format
 
