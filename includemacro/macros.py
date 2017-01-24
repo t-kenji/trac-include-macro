@@ -12,7 +12,6 @@
 import urllib2
 from StringIO import StringIO
 
-from genshi.core import escape
 from genshi.filters.html import HTMLSanitizer
 from genshi.input import HTMLParser, ParseError
 from trac.core import Component, TracError, implements
@@ -20,6 +19,7 @@ from trac.mimeview.api import Mimeview, get_mimetype, Context
 from trac.perm import IPermissionRequestor
 from trac.resource import ResourceNotFound
 from trac.ticket.model import Ticket
+from trac.util.html import escape
 from trac.util.text import to_unicode
 from trac.util.translation import _
 from trac.versioncontrol.api import NoSuchChangeset, NoSuchNode, \
@@ -44,6 +44,7 @@ class IncludeMacro(WikiMacroBase):
     }
 
     # IWikiMacroProvider methods
+
     def expand_macro(self, formatter, name, content):
         args = [x.strip() for x in content.split(',')]
         if len(args) == 1:
@@ -62,6 +63,7 @@ class IncludeMacro(WikiMacroBase):
         if dest_format is None:
             dest_format = self.default_formats.get(source_format)
 
+        out = ctxt = None
         if source_format in ('http', 'https', 'ftp'):
             # Since I can't really do recursion checking, and because this
             # could be a source of abuse allow selectively blocking it.
@@ -70,22 +72,21 @@ class IncludeMacro(WikiMacroBase):
             #      entering an URL include. <NPK>
             if 'INCLUDE_URL' not in formatter.perm:
                 self.log.info(
-                    'IncludeMacro: Blocking attempt by %s to include URL %s '
-                    'on page %s', formatter.req.authname, source,
+                    "IncludeMacro: Blocking attempt by %s to include URL %s "
+                    "on page %s", formatter.req.authname, source,
                     formatter.req.path_info)
                 return ''
             try:
                 urlf = urllib2.urlopen(source)
                 out = urlf.read()
             except urllib2.URLError, e:
-                return system_message('Error while retrieving file', str(e))
+                return system_message("Error while retrieving file", str(e))
             except TracError, e:
-                return system_message('Error while previewing', str(e))
+                return system_message("Error while previewing", str(e))
             ctxt = Context.from_request(formatter.req)
         elif source_format == 'wiki':
             # XXX: Check for recursion in page includes. <NPK>
             page_name, page_version = _split_path(source_obj)
-            referrer = ''
             # Relative link resolution adapted from Trac 1.1.2dev.
             # Hint: Only attempt this in wiki rendering context.
             if formatter.resource and formatter.resource.realm == 'wiki':
@@ -106,7 +107,7 @@ class IncludeMacro(WikiMacroBase):
                     page_name = _resolve_scoped_name(ws, page_name, referrer)
             try:
                 page = WikiPage(self.env, page_name, page_version)
-            except (TypeError, ValueError), e:  # Trac < 1.2 (Trac:#11544)
+            except (TypeError, ValueError):  # Trac < 1.2 (Trac:#11544)
                 msg = _('"%(version)s" is not a valid wiki page version.',
                         version=page_version)
                 return system_message(msg)
@@ -186,10 +187,12 @@ class IncludeMacro(WikiMacroBase):
         return out
 
     # IPermissionRequestor methods
+
     def get_permission_actions(self):
         yield 'INCLUDE_URL'
 
     # Private methods
+
     def _get_source(self, formatter, source_obj, dest_format):
         repos_mgr = RepositoryManager(self.env)
         try:  # 0.12+
