@@ -228,12 +228,13 @@ class IncludeMacro(WikiMacroBase):
         return out, ctxt, dest_format
 
     def _extract_section(self, text, section):
-        m1 = re.search("(^\s*={1,6}\s(.*?)(\#%s)\s*$)" % section,
+        m1 = re.search("(^\s*(?P<heading>={1,6})\s(.*?)(\#%s)\s*$)" % section,
                        text, re.MULTILINE)
         if m1:
             stext = text[m1.end(0):]
-            m2 = re.search("(^\s*={1,6}\s(.*?)(\#%s)?\s*$)"
-                           % WikiParser.XML_NAME, stext, re.MULTILINE)
+            m2 = re.search("(^\s*%s\s(.*?)(\#%s)?\s*$)"
+                           % (m1.group('heading'), WikiParser.XML_NAME),
+                           stext, re.MULTILINE)
             if m2:
                 return stext[:m2.start(0)]
             else:

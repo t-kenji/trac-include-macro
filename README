@@ -47,6 +47,10 @@ Include another wiki page::
 
     [[Include(PageName)]]
 
+Include a section of a page (the section heading must have an explicit id)::
+
+    [[Include(PageName#section)]]
+
 Include the HEAD revision of a reStructuredText__ file from the repository::
 
     [[Include(source:trunk/docs/README, text/x-rst)]]
