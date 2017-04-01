@@ -14,7 +14,7 @@ from setuptools import setup
 
 setup(
     name='TracIncludeMacro',
-    version='3.0.0',
+    version='3.1.0',
     packages=['includemacro'],
 
     author='Noah Kantrowitz',

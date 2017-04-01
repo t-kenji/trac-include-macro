@@ -10,11 +10,12 @@
 #
 
 import urllib2
+import re
 from StringIO import StringIO
 
 from genshi.filters.html import HTMLSanitizer
 from genshi.input import HTMLParser, ParseError
-from trac.core import Component, TracError, implements
+from trac.core import TracError, implements
 from trac.mimeview.api import Mimeview, get_mimetype, Context
 from trac.perm import IPermissionRequestor
 from trac.resource import ResourceNotFound
@@ -25,7 +26,7 @@ from trac.util.translation import _
 from trac.versioncontrol.api import NoSuchChangeset, NoSuchNode, \
                                     RepositoryManager
 from trac.wiki.api import WikiSystem
-from trac.wiki.formatter import system_message
+from trac.wiki.formatter import WikiParser, system_message
 from trac.wiki.macros import WikiMacroBase
 from trac.wiki.model import WikiPage
 
@@ -85,6 +86,10 @@ class IncludeMacro(WikiMacroBase):
                 return system_message("Error while previewing", str(e))
             ctxt = Context.from_request(formatter.req)
         elif source_format == 'wiki':
+            if '#' in source_obj:
+                source_obj, source_section = source_obj.split('#', 1)
+            else:
+                source_obj, source_section = source_obj, None
             # XXX: Check for recursion in page includes. <NPK>
             page_name, page_version = _split_path(source_obj)
             # Relative link resolution adapted from Trac 1.1.2dev.
@@ -123,6 +128,12 @@ class IncludeMacro(WikiMacroBase):
                     return system_message('Wiki page "%s" does not exist'
                                           % page_name)
             out = page.text
+            if source_section:
+                out = self._extract_section(out, source_section)
+                if out is None:
+                    return system_message(
+                        'Section "%s" not found in wiki page "%s"'
+                        % (source_section, page_name))
             ctxt = Context.from_request(formatter.req, 'wiki', source_obj)
         elif source_format in ('source', 'browser', 'repos'):
             if 'FILE_VIEW' not in formatter.perm:
@@ -215,6 +226,18 @@ class IncludeMacro(WikiMacroBase):
             ctxt = Context.from_request(formatter.req, 'source', path)
 
         return out, ctxt, dest_format
+
+    def _extract_section(self, text, section):
+        m1 = re.search("(^\s*={1,6}\s(.*?)(\#%s)\s*$)" % section,
+                       text, re.MULTILINE)
+        if m1:
+            stext = text[m1.end(0):]
+            m2 = re.search("(^\s*={1,6}\s(.*?)(\#%s)?\s*$)"
+                           % WikiParser.XML_NAME, stext, re.MULTILINE)
+            if m2:
+                return stext[:m2.start(0)]
+            else:
+                return stext
 
 
 def _resolve_relative_name(page_name, referrer):
